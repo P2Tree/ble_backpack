@@ -9129,12 +9129,6 @@
         <file>
             <name>$PROJ_DIR$\..\Source\SimpleBLEPeripheral_Main.c</name>
         </file>
-        <file>
-            <name>$PROJ_DIR$\..\Source\simplekeys.c</name>
-        </file>
-        <file>
-            <name>$PROJ_DIR$\..\Source\simplekeys.h</name>
-        </file>
     </group>
     <group>
         <name>HAL</name>

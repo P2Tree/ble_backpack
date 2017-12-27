@@ -60,7 +60,7 @@
 #include "devinfoservice.h"
 #include "simpleGATTprofile.h"
 
-#include "simplekeys.h"
+//#include "simplekeys.h"
 
 #if defined ( PLUS_BROADCASTER )
   #include "peripheralBroadcaster.h"
@@ -219,6 +219,15 @@ static uint8 advertData[] =
 // GAP GATT Attributes
 static uint8 attDeviceName[GAP_DEVICE_NAME_LEN] = "Simple BLE Peripheral";
 
+// Application states
+enum
+{
+  BLE_STATE_IDLE,
+  BLE_STATE_CONNECTED,
+};
+static uint8 simpleBLEState = BLE_STATE_IDLE;
+static uint8 gPairStatus=0;/*用来管理当前的状态，如果密码不正确，立即取消连接，0表示未配对，1表示已配对*/
+
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
@@ -227,11 +236,11 @@ static void peripheralStateNotificationCB( gaprole_States_t newState );
 static void performPeriodicTask( void );
 static void simpleProfileChangeCB( uint8 paramID );
 static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys );
-
-#if (defined HAL_LCD) && (HAL_LCD == TRUE)
 static char *bdAddr2Str ( uint8 *pAddr );
-#endif // (defined HAL_LCD) && (HAL_LCD == TRUE)
 
+// Device Pair and Passcode
+void ProcessPasscodeCB(uint8 *deviceAddr,uint16 connectionHandle,uint8 uiInputs,uint8 uiOutputs );
+static void ProcessPairStateCB( uint16 connHandle, uint8 state, uint8 status );
 
 
 /*********************************************************************
@@ -248,8 +257,8 @@ static gapRolesCBs_t simpleBLEPeripheral_PeripheralCBs =
 // GAP Bond Manager Callbacks
 static gapBondCBs_t simpleBLEPeripheral_BondMgrCBs =
 {
-  NULL,                     // Passcode callback (not used by application)
-  NULL                      // Pairing / Bonding state Callback (not used by application)
+  ProcessPasscodeCB,                     // Passcode callback 
+  ProcessPairStateCB                      // Pairing / Bonding state Callback
 };
 
 // Simple GATT Profile Callbacks
@@ -338,9 +347,11 @@ void SimpleBLEPeripheral_Init( uint8 task_id )
   // Setup the GAP Bond Manager
   {
     uint32 passkey = 0; // passkey "000000"
-    uint8 pairMode = GAPBOND_PAIRING_MODE_WAIT_FOR_REQ;
+    //uint8 pairMode = GAPBOND_PAIRING_MODE_WAIT_FOR_REQ;
+    // 如果两方没有任何一方设置为GAPBOND_PAIRING_MODE_INITIATE，则不会配对
+    uint8 pairMode = GAPBOND_PAIRING_MODE_INITIATE;
     uint8 mitm = TRUE;
-    uint8 ioCap = GAPBOND_IO_CAP_DISPLAY_ONLY;
+    uint8 ioCap = GAPBOND_IO_CAP_DISPLAY_ONLY; // 只有显示设备
     uint8 bonding = TRUE;
     GAPBondMgr_SetParameter( GAPBOND_DEFAULT_PASSCODE, sizeof ( uint32 ), &passkey );
     GAPBondMgr_SetParameter( GAPBOND_PAIRING_MODE, sizeof ( uint8 ), &pairMode );
@@ -405,8 +416,6 @@ void SimpleBLEPeripheral_Init( uint8 task_id )
   P2 = 0;   // All pins on port 2 to low
 #endif // #if defined( CC2540_MINIDK )
 
-#if (defined HAL_LCD) && (HAL_LCD == TRUE)
-
 #if defined FEATURE_OAD
   #if defined (HAL_IMAGE_A)
     HalLcdWriteStringValue( "BLE Peri-A", OAD_VER_NUM( _imgHdr.ver ), 16, HAL_LCD_LINE_1 );
@@ -417,8 +426,6 @@ void SimpleBLEPeripheral_Init( uint8 task_id )
   HalLcdWriteString( "BLE Peripheral", HAL_LCD_LINE_1 );
   SerialPrintString( "\r\nBLE Peripheral" );
 #endif // FEATURE_OAD
-
-#endif // (defined HAL_LCD) && (HAL_LCD == TRUE)
 
   // Register callback with SimpleGATTprofile
   VOID SimpleProfile_RegisterAppCBs( &simpleBLEPeripheral_SimpleProfileCBs );
@@ -644,6 +651,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
       {
         HalLcdWriteString( "Advertising",  HAL_LCD_LINE_3 );
         SerialPrintString("\r\nAdvertising");
+        simpleBLEState = BLE_STATE_IDLE;
       }
       break;
 
@@ -651,6 +659,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
       {
         HalLcdWriteString( "Connected",  HAL_LCD_LINE_3 );
         SerialPrintString("\r\nConnected");
+        simpleBLEState = BLE_STATE_CONNECTED;
       }
       break;
 
@@ -797,5 +806,77 @@ char *bdAddr2Str( uint8 *pAddr )
   return str;
 }
 
+//绑定过程中的密码管理回调函数
+static void ProcessPasscodeCB(uint8 *deviceAddr,uint16 connectionHandle,uint8 uiInputs,uint8 uiOutputs )
+{
+  uint32  passcode;
+  uint8   str[7];
+
+  //在这里可以设置存储，保存之前设定的密码，这样就可以动态修改配对密码了。
+  // Create random passcode
+  LL_Rand( ((uint8 *) &passcode), sizeof( uint32 ));
+  passcode %= 1000000;
+
+  //在lcd上显示当前的密码，这样手机端，根据此密码连接。
+  // Display passcode to user
+  if ( uiOutputs != 0 )
+  {
+    HalLcdWriteString( "Passcode:",  HAL_LCD_LINE_1 );
+    HalLcdWriteString( (char *) _ltoa(passcode, str, 10),  HAL_LCD_LINE_2 );
+    SerialPrintString( "\r\nPasscode:");
+    SerialPrintString( (char *) _ltoa(passcode, str, 10));
+  }
+  
+  // Send passcode response
+  GAPBondMgr_PasscodeRsp( connectionHandle, SUCCESS, passcode );
+}
+
+//绑定过程中的状态管理，在这里可以设置标志位，当密码不正确时不允许连接。
+static void ProcessPairStateCB( uint16 connHandle, uint8 state, uint8 status )
+{
+  if ( state == GAPBOND_PAIRING_STATE_STARTED )/*主机发起连接，会进入开始绑定状态*/
+  {
+    HalLcdWriteString( "Pairing started", HAL_LCD_LINE_1 );
+    SerialPrintString( "\r\nPairing started");
+    gPairStatus = 0;
+  }
+  else if ( state == GAPBOND_PAIRING_STATE_COMPLETE )/*当主机提交密码后，会进入完成*/
+  {
+    if ( status == SUCCESS )
+    {
+      HalLcdWriteString( "Pairing success", HAL_LCD_LINE_1 );/*密码正确*/
+      SerialPrintString( "\r\nPairing success");
+      gPairStatus = 1;
+    }
+    else
+    {
+      HalLcdWriteStringValue( "Pairing fail", status, 10, HAL_LCD_LINE_1 );/*密码不正确，或者先前已经绑定*/
+      SerialPrintValue( "\r\nPairing fail", status, 10);
+      if(status ==8){/*已绑定*/
+            gPairStatus = 1;
+      }else{
+            gPairStatus = 0;
+      }
+      SerialPrintValue( "\r\nstatus", status, 10);
+    }
+    SerialPrintValue( "\r\ngPairStatus", gPairStatus, 10);
+    SerialPrintValue( "\r\nsimpleBLEState", simpleBLEState, 10);
+    //判断配对结果，如果不正确立刻停止连接。
+    if(simpleBLEState == BLE_STATE_CONNECTED && gPairStatus !=1){
+      GAPRole_TerminateConnection();
+      HalLedBlink(HAL_LED_3, 1, 60, 1000);
+      SerialPrintString( "\r\nterminate");
+    }
+  }
+  else if ( state == GAPBOND_PAIRING_STATE_BONDED )
+  {
+    if ( status == SUCCESS )
+    {
+      HalLcdWriteString( "Bonding success", HAL_LCD_LINE_1 );
+      SerialPrintString( "\r\nBonding success");
+    }
+  }
+
+}
 /*********************************************************************
 *********************************************************************/
