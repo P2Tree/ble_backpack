@@ -70,7 +70,7 @@ pBuffer可以包含0x00
 */
 void sbpSerialAppWrite(uint8 *pBuffer, uint16 length)
 {
-	HalUARTWrite (SBP_UART_PORT, pBuffer, length);
+  HalUARTWrite (SBP_UART_PORT, pBuffer, length);
 }
 /*
 打印一个字符串

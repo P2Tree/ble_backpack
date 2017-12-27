@@ -282,7 +282,7 @@ void SimpleBLEPeripheral_Init( uint8 task_id )
 
   // Initial UART
   SerialApp_Init(simpleBLEPeripheral_TaskID);
-  SerialPrintString("SimpleBLEPeripheral_SerialPrint Start init.\r\n");
+  SerialPrintString("\r\nSimpleBLEPeripheral_SerialPrint Start init.");
   
   // Setup the GAP
   VOID GAP_SetParamValue( TGAP_CONN_PAUSE_PERIPHERAL, DEFAULT_CONN_PAUSE_PERIPHERAL );
@@ -415,7 +415,7 @@ void SimpleBLEPeripheral_Init( uint8 task_id )
   #endif // HAL_IMAGE_A
 #else
   HalLcdWriteString( "BLE Peripheral", HAL_LCD_LINE_1 );
-  SerialPrintString( "BLE Peripheral\r\n" );
+  SerialPrintString( "\r\nBLE Peripheral" );
 #endif // FEATURE_OAD
 
 #endif // (defined HAL_LCD) && (HAL_LCD == TRUE)
@@ -512,7 +512,7 @@ uint16 SimpleBLEPeripheral_ProcessEvent( uint8 task_id, uint16 events )
     // Turn on advertising while in a connection
     GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv );
 
-    SerialPrintString("Turn on advertising\r\n");
+    SerialPrintString("\r\nTurn on advertising");
 
     return (events ^ SBP_ADV_IN_CONNECTION_EVT);
   }
@@ -565,7 +565,7 @@ static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys )
 
   if ( keys & HAL_KEY_UP )
   {
-    SerialPrintString("[KEY UP pressed]\r\n");
+    SerialPrintString("\r\n[KEY UP pressed]");
 
     // if device is not in a connection, pressing the right key should toggle
     // advertising on and off
@@ -580,12 +580,12 @@ static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys )
       if( current_adv_enabled_status == FALSE )
       {
         new_adv_enabled_status = TRUE;
-        SerialPrintString("Turn on advertising\r\n");
+        SerialPrintString("\r\nTurn on advertising");
       }
       else
       {
         new_adv_enabled_status = FALSE;
-        SerialPrintString("Turn off advertising\r\n");
+        SerialPrintString("\r\nTurn off advertising");
       }
 
       //change the GAP advertisement status to opposite of current status
@@ -633,45 +633,45 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
 
         // Display device address
         HalLcdWriteString( bdAddr2Str( ownAddress ),  HAL_LCD_LINE_2 );
-        SerialPrintString( (uint8*)bdAddr2Str(ownAddress) );
         SerialPrintString("\r\n");
+        SerialPrintString( (uint8*)bdAddr2Str(ownAddress) );
         HalLcdWriteString( "Initialized",  HAL_LCD_LINE_3 );
-        SerialPrintString("initialized\r\n");
+        SerialPrintString("\r\ninitialized");
       }
       break;
 
     case GAPROLE_ADVERTISING:
       {
         HalLcdWriteString( "Advertising",  HAL_LCD_LINE_3 );
-        SerialPrintString("Advertising\r\n");
+        SerialPrintString("\r\nAdvertising");
       }
       break;
 
     case GAPROLE_CONNECTED:
       {
         HalLcdWriteString( "Connected",  HAL_LCD_LINE_3 );
-        SerialPrintString("Connected\r\n");
+        SerialPrintString("\r\nConnected");
       }
       break;
 
     case GAPROLE_WAITING:
       {
         HalLcdWriteString( "Disconnected",  HAL_LCD_LINE_3 );
-        SerialPrintString("Disconnected\r\n");
+        SerialPrintString("\r\nDisconnected");
       }
       break;
 
     case GAPROLE_WAITING_AFTER_TIMEOUT:
       {
         HalLcdWriteString( "Timed Out",  HAL_LCD_LINE_3 );
-        SerialPrintString("Timed Out\r\n");
+        SerialPrintString("\r\nTimed Out");
       }
       break;
 
     case GAPROLE_ERROR:
       {
         HalLcdWriteString( "Error",  HAL_LCD_LINE_3 );
-        SerialPrintString("Error\r\n");
+        SerialPrintString("\r\nError");
       }
       break;
 
@@ -744,19 +744,18 @@ static void simpleProfileChangeCB( uint8 paramID )
   {
     case SIMPLEPROFILE_CHAR1:
       SimpleProfile_GetParameter( SIMPLEPROFILE_CHAR1, &newValue );
-
-      #if (defined HAL_LCD) && (HAL_LCD == TRUE)
-        HalLcdWriteStringValue( "Char 1:", (uint16)(newValue), 10,  HAL_LCD_LINE_3 );
-      #endif // (defined HAL_LCD) && (HAL_LCD == TRUE)
-
+      HalLedBlink(HAL_LED_2, 1, 60, 1000);
+      
+      HalLcdWriteStringValue( "Char 1:", (uint16)(newValue), 10,  HAL_LCD_LINE_3 );
+      SerialPrintValue("\r\nChar 1:", (uint16)(newValue), 10);
+      
       break;
 
     case SIMPLEPROFILE_CHAR3:
       SimpleProfile_GetParameter( SIMPLEPROFILE_CHAR3, &newValue );
 
-      #if (defined HAL_LCD) && (HAL_LCD == TRUE)
-        HalLcdWriteStringValue( "Char 3:", (uint16)(newValue), 10,  HAL_LCD_LINE_3 );
-      #endif // (defined HAL_LCD) && (HAL_LCD == TRUE)
+      HalLcdWriteStringValue( "Char 3:", (uint16)(newValue), 10,  HAL_LCD_LINE_3 );
+      SerialPrintValue("\r\nChar 3:", (uint16)(newValue), 10);
 
       break;
 
@@ -766,7 +765,6 @@ static void simpleProfileChangeCB( uint8 paramID )
   }
 }
 
-#if (defined HAL_LCD) && (HAL_LCD == TRUE)
 /*********************************************************************
  * @fn      bdAddr2Str
  *
@@ -798,7 +796,6 @@ char *bdAddr2Str( uint8 *pAddr )
 
   return str;
 }
-#endif // (defined HAL_LCD) && (HAL_LCD == TRUE)
 
 /*********************************************************************
 *********************************************************************/
