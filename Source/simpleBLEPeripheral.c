@@ -106,7 +106,7 @@
 #define DEFAULT_DESIRED_MIN_CONN_INTERVAL     4
 
 // Maximum connection interval (units of 1.25ms, 800=1000ms) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_MAX_CONN_INTERVAL     8
+#define DEFAULT_DESIRED_MAX_CONN_INTERVAL     10
 
 // Slave latency to use if automatic parameter update request is enabled
 #define DEFAULT_DESIRED_SLAVE_LATENCY         0
@@ -737,17 +737,22 @@ static void simpleProfileChangeCB( uint8 paramID )
   {
     case SIMPLEPROFILE_CHAR1:
       SimpleProfile_GetParameter( SIMPLEPROFILE_CHAR1, &newValue );
-      HalLedBlink(HAL_LED_2, 1, 60, 1000);
       
-      HalLcdWriteStringValue( "Char 1:", (uint16)(newValue), 10,  HAL_LCD_LINE_3 );
       SerialPrintValue("\r\nChar 1:", (uint16)(newValue), 10);
+      if ( newValue == 1) // pressed
+      {
+        HalLedSet(HAL_LED_2, HAL_LED_MODE_ON);
+      }
+      else if (newValue == 0) // released
+      {
+        HalLedSet(HAL_LED_2, HAL_LED_MODE_OFF);
+      }
       
       break;
 
     case SIMPLEPROFILE_CHAR3:
       SimpleProfile_GetParameter( SIMPLEPROFILE_CHAR3, &newValue );
 
-      HalLcdWriteStringValue( "Char 3:", (uint16)(newValue), 10,  HAL_LCD_LINE_3 );
       SerialPrintValue("\r\nChar 3:", (uint16)(newValue), 10);
 
       break;
