@@ -60,7 +60,7 @@ void sbpSerialAppCallback(uint8 port, uint8 event)
   if ( (numBytes = Hal_UART_RxBufLen(port)) > 0 ){
   	//读取全部有效的数据，这里可以一个一个读取，以解析特定的命令
 	(void)HalUARTRead (port, pktBuffer, numBytes);
-	HalLcdWriteString(pktBuffer, HAL_LCD_LINE_5 );
+	//HalLcdWriteString(pktBuffer, HAL_LCD_LINE_5 );
   }
   
 }

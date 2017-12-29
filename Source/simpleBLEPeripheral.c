@@ -49,7 +49,7 @@
 #include "hal_adc.h"
 #include "hal_led.h"
 #include "hal_key.h"
-#include "hal_lcd.h"
+//#include "hal_lcd.h"
 
 #include "gatt.h"
 
@@ -95,18 +95,17 @@
 
 // Limited discoverable mode advertises for 30.72s, and then stops
 // General discoverable mode advertises indefinitely
+#define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_LIMITED 
+//#define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_GENERAL
 
-#if defined ( CC2540_MINIDK )
-#define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_LIMITED
-#else
-#define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_GENERAL
-#endif  // defined ( CC2540_MINIDK )
+// Maximum time to remain advertising, when in Limited Discoverable mode. unit is seconds ( default 180s)
+#define USER_LIM_ADV_TIMEOUT                    30
 
 // Minimum connection interval (units of 1.25ms, 80=100ms) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_MIN_CONN_INTERVAL     4
+#define DEFAULT_DESIRED_MIN_CONN_INTERVAL     800
 
 // Maximum connection interval (units of 1.25ms, 800=1000ms) if automatic parameter update request is enabled
-#define DEFAULT_DESIRED_MAX_CONN_INTERVAL     10
+#define DEFAULT_DESIRED_MAX_CONN_INTERVAL     800
 
 // Slave latency to use if automatic parameter update request is enabled
 #define DEFAULT_DESIRED_SLAVE_LATENCY         0
@@ -132,6 +131,8 @@
   #define ADV_IN_CONN_WAIT                    500 // delay 500 ms
 #endif
 
+// Open debug log in uart port, you should also open HAL_UART=TRUE
+//#define UART_DEBUG_MODE                       TRUE
 /*********************************************************************
  * TYPEDEFS
  */
@@ -170,9 +171,9 @@ static uint8 scanRspData[] =
   // connection interval range
   0x05,   // length of this data
   GAP_ADTYPE_SLAVE_CONN_INTERVAL_RANGE,
-  LO_UINT16( DEFAULT_DESIRED_MIN_CONN_INTERVAL ),   // 100ms
+  LO_UINT16( DEFAULT_DESIRED_MIN_CONN_INTERVAL ),
   HI_UINT16( DEFAULT_DESIRED_MIN_CONN_INTERVAL ),
-  LO_UINT16( DEFAULT_DESIRED_MAX_CONN_INTERVAL ),   // 1s
+  LO_UINT16( DEFAULT_DESIRED_MAX_CONN_INTERVAL ),
   HI_UINT16( DEFAULT_DESIRED_MAX_CONN_INTERVAL ),
 
   // Tx power level
@@ -202,7 +203,7 @@ static uint8 advertData[] =
 };
 
 // GAP GATT Attributes
-static uint8 attDeviceName[GAP_DEVICE_NAME_LEN] = "Simple BLE Peripheral";
+static uint8 attDeviceName[GAP_DEVICE_NAME_LEN] = "TJGQ backpack";
 
 // Application states
 enum
@@ -274,26 +275,27 @@ void SimpleBLEPeripheral_Init( uint8 task_id )
   simpleBLEPeripheral_TaskID = task_id;
 
   // Initial UART
+#if defined (HAL_UART)
   SerialApp_Init(simpleBLEPeripheral_TaskID);
+#endif
+
+#if defined ( UART_DEBUG_MODE )
   SerialPrintString("\r\nSimpleBLEPeripheral_SerialPrint Start init.");
+#endif
   
   // Setup the GAP
   VOID GAP_SetParamValue( TGAP_CONN_PAUSE_PERIPHERAL, DEFAULT_CONN_PAUSE_PERIPHERAL );
 
   // Setup the GAP Peripheral Role Profile
   {
-    #if defined( CC2540_MINIDK )
-      // For the CC2540DK-MINI keyfob, device doesn't start advertising until button is pressed
-      uint8 initial_advertising_enable = FALSE;
-    #else
-      // For other hardware platforms, device starts advertising upon initialization
-      uint8 initial_advertising_enable = TRUE;
-    #endif
+    // Device starts advertising upon initialization
+    uint8 initial_advertising_enable = TRUE;
 
     // By setting this to zero, the device will go into the waiting state after
     // being discoverable for 30.72 second, and will not being advertising again
     // until the enabler is set back to TRUE
-    uint16 gapRole_AdvertOffTime = 0;
+    // unit is ms, if not zero, advertising will turn on again after this time(ms)
+    uint16 gapRole_AdvertOffTime = 0; 
 
     uint8 enable_update_request = DEFAULT_ENABLE_UPDATE_REQUEST;
     uint16 desired_min_interval = DEFAULT_DESIRED_MIN_CONN_INTERVAL;
@@ -321,16 +323,19 @@ void SimpleBLEPeripheral_Init( uint8 task_id )
   // Set advertising interval
   {
     uint16 advInt = DEFAULT_ADVERTISING_INTERVAL;
-
+    uint16 limAdvTimeOut = USER_LIM_ADV_TIMEOUT;
+      
     GAP_SetParamValue( TGAP_LIM_DISC_ADV_INT_MIN, advInt );
     GAP_SetParamValue( TGAP_LIM_DISC_ADV_INT_MAX, advInt );
     GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MIN, advInt );
     GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MAX, advInt );
+    
+    GAP_SetParamValue( TGAP_LIM_ADV_TIMEOUT, limAdvTimeOut );   // limited for 30s, default is 180s
   }
 
   // Setup the GAP Bond Manager
   {
-    uint32 passkey = 0; // passkey "000000"
+    uint32 passkey = 0;
     //uint8 pairMode = GAPBOND_PAIRING_MODE_WAIT_FOR_REQ;
     // 如果两方没有任何一方设置为GAPBOND_PAIRING_MODE_INITIATE，则不会配对
     uint8 pairMode = GAPBOND_PAIRING_MODE_INITIATE;
@@ -371,45 +376,17 @@ void SimpleBLEPeripheral_Init( uint8 task_id )
   RegisterForKeys( simpleBLEPeripheral_TaskID );
   
   HalLedSet( (HAL_LED_1 | HAL_LED_2 | HAL_LED_3), HAL_LED_MODE_OFF );
-  
-#if defined( CC2540_MINIDK )
 
-  SK_AddService( GATT_ALL_SERVICES ); // Simple Keys Profile
-
-  // Register for all key events - This app will handle all key events
-  RegisterForKeys( simpleBLEPeripheral_TaskID );
-
-  // makes sure LEDs are off
-  HalLedSet( (HAL_LED_1 | HAL_LED_2), HAL_LED_MODE_OFF );
-
-  // For keyfob board set GPIO pins into a power-optimized state
-  // Note that there is still some leakage current from the buzzer,
-  // accelerometer, LEDs, and buttons on the PCB.
-
-  P0SEL = 0; // Configure Port 0 as GPIO
-  P1SEL = 0; // Configure Port 1 as GPIO
-  P2SEL = 0; // Configure Port 2 as GPIO
-
-  P0DIR = 0xFC; // Port 0 pins P0.0 and P0.1 as input (buttons),
-                // all others (P0.2-P0.7) as output
-  P1DIR = 0xFF; // All port 1 pins (P1.0-P1.7) as output
-  P2DIR = 0x1F; // All port 1 pins (P2.0-P2.4) as output
-
-  P0 = 0x03; // All pins on port 0 to low except for P0.0 and P0.1 (buttons)
-  P1 = 0;   // All pins on port 1 to low
-  P2 = 0;   // All pins on port 2 to low
-#endif // #if defined( CC2540_MINIDK )
-
+#if defined ( UART_DEBUG_MODE )
 #if defined FEATURE_OAD
   #if defined (HAL_IMAGE_A)
-    HalLcdWriteStringValue( "BLE Peri-A", OAD_VER_NUM( _imgHdr.ver ), 16, HAL_LCD_LINE_1 );
+    SerialPrintValue("BLE Peri-A", OAD_VER_NUM( _imgHdr.ver ), 16);
   #else
-    HalLcdWriteStringValue( "BLE Peri-B", OAD_VER_NUM( _imgHdr.ver ), 16, HAL_LCD_LINE_1 );
+    SerialPrintValue("BLE Peri-B", OAD_VER_NUM( _imgHdr.ver ), 16);
   #endif // HAL_IMAGE_A
 #else
-  HalLcdWriteString( "BLE Peripheral", HAL_LCD_LINE_1 );
-  SerialPrintString( "\r\nBLE Peripheral" );
 #endif // FEATURE_OAD
+#endif // UART_DEBUG_MODE
 
   // Register callback with SimpleGATTprofile
   VOID SimpleProfile_RegisterAppCBs( &simpleBLEPeripheral_SimpleProfileCBs );
@@ -419,13 +396,15 @@ void SimpleBLEPeripheral_Init( uint8 task_id )
   // is halted
   HCI_EXT_ClkDivOnHaltCmd( HCI_EXT_ENABLE_CLK_DIVIDE_ON_HALT );
 
-#if defined ( DC_DC_P0_7 )
-
-  // Enable stack to toggle bypass control on TPS62730 (DC/DC converter)
-  HCI_EXT_MapPmIoPortCmd( HCI_EXT_PM_IO_PORT_P0, HCI_EXT_PM_IO_PORT_PIN7 );
-
-#endif // defined ( DC_DC_P0_7 )
-
+#if !defined ( UART_DEBUG_MODE )
+  // Power saving mode
+  osal_pwrmgr_device( PWRMGR_BATTERY );
+#endif
+  
+#if defined ( UART_DEBUG_MODE )
+  SerialPrintString("\r\nReady to Starting");
+#endif
+  
   // Setup a delayed profile startup
   osal_set_event( simpleBLEPeripheral_TaskID, SBP_START_DEVICE_EVT );
 
@@ -485,8 +464,6 @@ uint16 SimpleBLEPeripheral_ProcessEvent( uint8 task_id, uint16 events )
     {
       osal_start_timerEx( simpleBLEPeripheral_TaskID, SBP_PERIODIC_EVT, SBP_PERIODIC_EVT_PERIOD );
     }
-
-    SerialPrintString(".");
 
     HalLedBlink(HAL_LED_1, 1, 80, 1000);
 
@@ -550,13 +527,13 @@ static void simpleBLEPeripheral_ProcessOSALMsg( osal_event_hdr_t *pMsg )
  */
 static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys )
 {
-  //uint8 SK_Keys = 0;
-
   (void)shift;  // Intentionally unreferenced parameter
 
   if ( keys & HAL_KEY_UP )
   {
+#if defined ( UART_DEBUG_MODE )
     SerialPrintString("\r\n[KEY UP pressed]");
+#endif
 
     // if device is not in a connection, pressing the right key should toggle
     // advertising on and off
@@ -571,12 +548,16 @@ static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys )
       if( current_adv_enabled_status == FALSE )
       {
         new_adv_enabled_status = TRUE;
+#if defined ( UART_DEBUG_MODE )
         SerialPrintString("\r\nTurn on advertising");
+#endif
       }
       else
       {
         new_adv_enabled_status = FALSE;
+#if defined ( UART_DEBUG_MODE )
         SerialPrintString("\r\nTurn off advertising");
+#endif
       }
 
       //change the GAP advertisement status to opposite of current status
@@ -622,67 +603,64 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
 
         DevInfo_SetParameter(DEVINFO_SYSTEM_ID, DEVINFO_SYSTEM_ID_LEN, systemId);
 
-        // Display device address
-        HalLcdWriteString( bdAddr2Str( ownAddress ),  HAL_LCD_LINE_2 );
-        SerialPrintString("\r\n");
+#if defined ( UART_DEBUG_MODE )
+        SerialPrintString("\r\nAddress ");
         SerialPrintString( (uint8*)bdAddr2Str(ownAddress) );
-        HalLcdWriteString( "Initialized",  HAL_LCD_LINE_3 );
         SerialPrintString("\r\ninitialized");
+#endif
       }
       break;
 
     case GAPROLE_ADVERTISING:
       {
-        HalLcdWriteString( "Advertising",  HAL_LCD_LINE_3 );
+#if defined ( UART_DEBUG_MODE )
         SerialPrintString("\r\nAdvertising");
+#endif
         simpleBLEState = BLE_STATE_IDLE;
       }
       break;
 
     case GAPROLE_CONNECTED:
       {
-        HalLcdWriteString( "Connected",  HAL_LCD_LINE_3 );
+#if defined ( UART_DEBUG_MODE )
         SerialPrintString("\r\nConnected");
+#endif
         simpleBLEState = BLE_STATE_CONNECTED;
       }
       break;
 
     case GAPROLE_WAITING:
       {
-        HalLcdWriteString( "Disconnected",  HAL_LCD_LINE_3 );
-        SerialPrintString("\r\nDisconnected");
+#if defined ( UART_DEBUG_MODE )
+        SerialPrintString("\r\nWaiting");
+#endif
       }
       break;
 
     case GAPROLE_WAITING_AFTER_TIMEOUT:
       {
-        HalLcdWriteString( "Timed Out",  HAL_LCD_LINE_3 );
+#if defined ( UART_DEBUG_MODE )
         SerialPrintString("\r\nTimed Out");
+#endif
       }
       break;
 
     case GAPROLE_ERROR:
       {
-        HalLcdWriteString( "Error",  HAL_LCD_LINE_3 );
+#if defined ( UART_DEBUG_MODE )
         SerialPrintString("\r\nError");
+#endif
       }
       break;
 
     default:
       {
-        HalLcdWriteString( "",  HAL_LCD_LINE_3 );
       }
       break;
 
   }
 
   gapProfileState = newState;
-
-#if !defined( CC2540_MINIDK )
-  VOID gapProfileState;     // added to prevent compiler warning with
-                            // "CC2540 Slave" configurations
-#endif
-
 
 }
 
@@ -738,7 +716,9 @@ static void simpleProfileChangeCB( uint8 paramID )
     case SIMPLEPROFILE_CHAR1:
       SimpleProfile_GetParameter( SIMPLEPROFILE_CHAR1, &newValue );
       
+#if defined ( UART_DEBUG_MODE )
       SerialPrintValue("\r\nChar 1:", (uint16)(newValue), 10);
+#endif
       if ( newValue == 1) // pressed
       {
         HalLedSet(HAL_LED_2, HAL_LED_MODE_ON);
@@ -753,7 +733,9 @@ static void simpleProfileChangeCB( uint8 paramID )
     case SIMPLEPROFILE_CHAR3:
       SimpleProfile_GetParameter( SIMPLEPROFILE_CHAR3, &newValue );
 
+#if defined ( UART_DEBUG_MODE )
       SerialPrintValue("\r\nChar 3:", (uint16)(newValue), 10);
+#endif
 
       break;
 
@@ -776,43 +758,47 @@ static void simpleBLEPeripheralPairStateCB( uint16 connHandle, uint8 state, uint
 {
   if ( state == GAPBOND_PAIRING_STATE_STARTED )/*主机发起连接，会进入开始绑定状态*/
   {
-    HalLcdWriteString( "Pairing started", HAL_LCD_LINE_1 );
+#if defined ( UART_DEBUG_MODE )
     SerialPrintString( "\r\nPairing started");
+#endif
     gPairStatus = 0;
   }
   else if ( state == GAPBOND_PAIRING_STATE_COMPLETE )/*当主机提交密码后，会进入完成*/
   {
     if ( status == SUCCESS )
     {
-      HalLcdWriteString( "Pairing success", HAL_LCD_LINE_1 );/*密码正确*/
+#if defined ( UART_DEBUG_MODE )
       SerialPrintString( "\r\nPairing success");
+#endif
       gPairStatus = 1;
     }
     else
     {
-      HalLcdWriteStringValue( "Pairing fail", status, 10, HAL_LCD_LINE_1 );/*密码不正确，或者先前已经绑定*/
+#if defined ( UART_DEBUG_MODE )
       SerialPrintValue( "\r\nPairing fail", status, 10);
+#endif
       if(status == 8){/*已绑定*/
             gPairStatus = 1;
       }else{
             gPairStatus = 0;
       }
     }
-    SerialPrintValue( "\r\ngPairStatus", gPairStatus, 10);
-    SerialPrintValue( "\r\nsimpleBLEState", simpleBLEState, 10);
     //判断配对结果，如果不正确立刻停止连接。
     if(simpleBLEState == BLE_STATE_CONNECTED && gPairStatus !=1){
       GAPRole_TerminateConnection();
       HalLedBlink(HAL_LED_3, 1, 60, 1000);
+#if defined ( UART_DEBUG_MODE )
       SerialPrintString( "\r\nterminate");
+#endif
     }
   }
   else if ( state == GAPBOND_PAIRING_STATE_BONDED )
   {
     if ( status == SUCCESS )
     {
-      HalLcdWriteString( "Bonding success", HAL_LCD_LINE_1 );
+#if defined ( UART_DEBUG_MODE )
       SerialPrintString( "\r\nBonding success");
+#endif
     }
   }
 
@@ -828,12 +814,11 @@ static void simpleBLEPeripheralPairStateCB( uint16 connHandle, uint8 state, uint
 static void simpleBLEPeripheralPasscodeCB(uint8 *deviceAddr,uint16 connectionHandle,uint8 uiInputs,uint8 uiOutputs )
 {
   uint32  passcode;
-  uint8   str[7];
 
   //在这里可以设置存储，保存之前设定的密码，这样就可以动态修改配对密码了。
   // Create random passcode
-  LL_Rand( ((uint8 *) &passcode), sizeof( uint32 ));
-  passcode %= 1000000;
+  //LL_Rand( ((uint8 *) &passcode), sizeof( uint32 ));
+  //passcode %= 1000000;
   
   // using temp code
   passcode = 123456;
@@ -842,10 +827,11 @@ static void simpleBLEPeripheralPasscodeCB(uint8 *deviceAddr,uint16 connectionHan
   // Display passcode to user
   if ( uiOutputs != 0 )
   {
-    HalLcdWriteString( "Passcode:",  HAL_LCD_LINE_1 );
-    HalLcdWriteString( (char *) _ltoa(passcode, str, 10),  HAL_LCD_LINE_2 );
+#if defined ( UART_DEBUG_MODE )
+    uint8 str[7];
     SerialPrintString( "\r\nPasscode:");
-    SerialPrintString( (char *) _ltoa(passcode, str, 10));
+    SerialPrintString( (uint8 *) _ltoa(passcode, str, 10));
+#endif
   }
   
   // Send passcode response
