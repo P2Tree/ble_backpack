@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <workspace>
     <project>
+        <path>$WS_DIR$\..\..\SimpleBLECentral_glove\CC2541\SimpleBLECentral.ewp</path>
+    </project>
+    <project>
         <path>$WS_DIR$\SimpleBLEPeripheral.ewp</path>
     </project>
     <batchBuild />

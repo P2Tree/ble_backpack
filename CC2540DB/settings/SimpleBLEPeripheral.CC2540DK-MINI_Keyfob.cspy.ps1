@@ -23,9 +23,9 @@ param([String]$debugfile = "");
 
 if ($debugfile -eq "")
 {
-& "C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.0\common\bin\cspybat" -f "D:\BLE-CC254x-1.3.2\Projects\ble\SimpleBLEPeripheral\CC2540DB\settings\SimpleBLEPeripheral.CC2540DK-MINI_Keyfob.general.xcl" --backend -f "D:\BLE-CC254x-1.3.2\Projects\ble\SimpleBLEPeripheral\CC2540DB\settings\SimpleBLEPeripheral.CC2540DK-MINI_Keyfob.driver.xcl" 
+& "C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.0\common\bin\cspybat" -f "D:\BLE-CC254x-1.3.2\Projects\ble\SimpleBLEPeripheral_backpack\CC2540DB\settings\SimpleBLEPeripheral.CC2540DK-MINI_Keyfob.general.xcl" --backend -f "D:\BLE-CC254x-1.3.2\Projects\ble\SimpleBLEPeripheral_backpack\CC2540DB\settings\SimpleBLEPeripheral.CC2540DK-MINI_Keyfob.driver.xcl" 
 }
 else
 {
-& "C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.0\common\bin\cspybat" -f "D:\BLE-CC254x-1.3.2\Projects\ble\SimpleBLEPeripheral\CC2540DB\settings\SimpleBLEPeripheral.CC2540DK-MINI_Keyfob.general.xcl" --debug_file=$debugfile --backend -f "D:\BLE-CC254x-1.3.2\Projects\ble\SimpleBLEPeripheral\CC2540DB\settings\SimpleBLEPeripheral.CC2540DK-MINI_Keyfob.driver.xcl" 
+& "C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.0\common\bin\cspybat" -f "D:\BLE-CC254x-1.3.2\Projects\ble\SimpleBLEPeripheral_backpack\CC2540DB\settings\SimpleBLEPeripheral.CC2540DK-MINI_Keyfob.general.xcl" --debug_file=$debugfile --backend -f "D:\BLE-CC254x-1.3.2\Projects\ble\SimpleBLEPeripheral_backpack\CC2540DB\settings\SimpleBLEPeripheral.CC2540DK-MINI_Keyfob.driver.xcl" 
 }

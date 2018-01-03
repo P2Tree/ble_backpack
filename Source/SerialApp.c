@@ -55,7 +55,7 @@ void sbpSerialAppCallback(uint8 port, uint8 event)
   uint8  pktBuffer[SBP_UART_RX_BUF_SIZE];
   // unused input parameter; PC-Lint error 715.
   (void)event;
-  HalLcdWriteString("Data form my UART:", HAL_LCD_LINE_4 );
+  /* HalLcdWriteString("Data form my UART:", HAL_LCD_LINE_4 ); */
   //返回可读的字节
   if ( (numBytes = Hal_UART_RxBufLen(port)) > 0 ){
   	//读取全部有效的数据，这里可以一个一个读取，以解析特定的命令

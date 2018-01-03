@@ -211,7 +211,7 @@ enum
   BLE_STATE_IDLE,
   BLE_STATE_CONNECTED,
 };
-static uint8 simpleBLEState = BLE_STATE_IDLE;
+static uint8 simpleBLEState = BLE_STATE_IDLE; // connected or not
 
 /*********************************************************************
  * LOCAL FUNCTIONS
@@ -563,8 +563,21 @@ static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys )
       //change the GAP advertisement status to opposite of current status
       GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &new_adv_enabled_status );
     }
-
+    
   }
+
+  if ( keys & HAL_KEY_CENTER )
+  {
+    if ( gapProfileState == GAPROLE_CONNECTED )
+    {
+      GAPRole_TerminateConnection();
+#if defined ( UART_DEBUG_MODE )
+      SerialPrintString("\r\nTerminated Connection");
+#endif
+    }
+  }
+  
+
 }
 
 /*********************************************************************
@@ -786,9 +799,8 @@ static void simpleBLEPeripheralPairStateCB( uint16 connHandle, uint8 state, uint
     //判断配对结果，如果不正确立刻停止连接。
     if(simpleBLEState == BLE_STATE_CONNECTED && gPairStatus !=1){
       GAPRole_TerminateConnection();
-      HalLedBlink(HAL_LED_3, 1, 60, 1000);
 #if defined ( UART_DEBUG_MODE )
-      SerialPrintString( "\r\nterminate");
+      SerialPrintString( "\r\nTerminated");
 #endif
     }
   }
