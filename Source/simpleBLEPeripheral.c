@@ -534,6 +534,17 @@ static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys )
 #if defined ( UART_DEBUG_MODE )
     SerialPrintString("\r\n[KEY UP pressed]");
 #endif
+  }
+
+  if ( keys & HAL_KEY_CENTER )
+  {
+    if ( gapProfileState == GAPROLE_CONNECTED )
+    {
+      GAPRole_TerminateConnection();
+#if defined ( UART_DEBUG_MODE )
+      SerialPrintString("\r\nTerminated Connection");
+#endif
+    }
 
     // if device is not in a connection, pressing the right key should toggle
     // advertising on and off
@@ -552,28 +563,9 @@ static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys )
         SerialPrintString("\r\nTurn on advertising");
 #endif
       }
-      else
-      {
-        new_adv_enabled_status = FALSE;
-#if defined ( UART_DEBUG_MODE )
-        SerialPrintString("\r\nTurn off advertising");
-#endif
-      }
 
       //change the GAP advertisement status to opposite of current status
       GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &new_adv_enabled_status );
-    }
-    
-  }
-
-  if ( keys & HAL_KEY_CENTER )
-  {
-    if ( gapProfileState == GAPROLE_CONNECTED )
-    {
-      GAPRole_TerminateConnection();
-#if defined ( UART_DEBUG_MODE )
-      SerialPrintString("\r\nTerminated Connection");
-#endif
     }
   }
   
