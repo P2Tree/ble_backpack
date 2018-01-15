@@ -280,7 +280,7 @@ void SimpleBLEPeripheral_Init( uint8 task_id )
 #endif
 
 #if defined ( UART_DEBUG_MODE )
-  SerialPrintString("\r\nSimpleBLEPeripheral_SerialPrint Start init.");
+  SerialPrintString("\r\nSimpleBLEPeripheral_BackPack");
 #endif
   
   // Setup the GAP
@@ -372,10 +372,14 @@ void SimpleBLEPeripheral_Init( uint8 task_id )
     SimpleProfile_SetParameter( SIMPLEPROFILE_CHAR5, SIMPLEPROFILE_CHAR5_LEN, charValue5 );
   }
   
+#if ( defined HAL_KEY )
   // Register for all key events
   RegisterForKeys( simpleBLEPeripheral_TaskID );
+#endif
   
+#if ( defined HAL_LED )
   HalLedSet( (HAL_LED_1 | HAL_LED_2 | HAL_LED_3), HAL_LED_MODE_OFF );
+#endif
 
 #if defined ( UART_DEBUG_MODE )
 #if defined FEATURE_OAD
@@ -399,10 +403,6 @@ void SimpleBLEPeripheral_Init( uint8 task_id )
 #if !defined ( UART_DEBUG_MODE )
   // Power saving mode
   osal_pwrmgr_device( PWRMGR_BATTERY );
-#endif
-  
-#if defined ( UART_DEBUG_MODE )
-  SerialPrintString("\r\nReady to Starting");
 #endif
   
   // Setup a delayed profile startup
@@ -459,32 +459,20 @@ uint16 SimpleBLEPeripheral_ProcessEvent( uint8 task_id, uint16 events )
 
   if ( events & SBP_PERIODIC_EVT )
   {
+
+    HalLedBlink(HAL_LED_1, 1, 80, 1000);
+
+    // Perform periodic application task
+    //performPeriodicTask();
+
     // Restart timer
     if ( SBP_PERIODIC_EVT_PERIOD )
     {
       osal_start_timerEx( simpleBLEPeripheral_TaskID, SBP_PERIODIC_EVT, SBP_PERIODIC_EVT_PERIOD );
     }
 
-    HalLedBlink(HAL_LED_1, 1, 80, 1000);
-
-    // Perform periodic application task
-    performPeriodicTask();
-
     return (events ^ SBP_PERIODIC_EVT);
   }
-
-#if defined ( PLUS_BROADCASTER )
-  if ( events & SBP_ADV_IN_CONNECTION_EVT )
-  {
-    uint8 turnOnAdv = TRUE;
-    // Turn on advertising while in a connection
-    GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &turnOnAdv );
-
-    SerialPrintString("\r\nTurn on advertising");
-
-    return (events ^ SBP_ADV_IN_CONNECTION_EVT);
-  }
-#endif // PLUS_BROADCASTER
 
   // Discard unknown events
   return 0;
@@ -531,9 +519,6 @@ static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys )
 
   if ( keys & HAL_KEY_UP )
   {
-#if defined ( UART_DEBUG_MODE )
-    SerialPrintString("\r\n[KEY UP pressed]");
-#endif
   }
 
   if ( keys & HAL_KEY_CENTER )
@@ -611,7 +596,6 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
 #if defined ( UART_DEBUG_MODE )
         SerialPrintString("\r\nAddress ");
         SerialPrintString( (uint8*)bdAddr2Str(ownAddress) );
-        SerialPrintString("\r\ninitialized");
 #endif
       }
       break;
@@ -721,26 +705,27 @@ static void simpleProfileChangeCB( uint8 paramID )
     case SIMPLEPROFILE_CHAR1:
       SimpleProfile_GetParameter( SIMPLEPROFILE_CHAR1, &newValue );
       
-#if defined ( UART_DEBUG_MODE )
-      SerialPrintValue("\r\nChar 1:", (uint16)(newValue), 10);
-#endif
       if ( newValue == 1) // pressed
       {
+#if defined ( UART_DEBUG_MODE )
+      SerialPrintString("\r\nLight On");
+#endif
         HalLedSet(HAL_LED_2, HAL_LED_MODE_ON);
+        HalLedSet(HAL_LED_4, HAL_LED_MODE_ON);
       }
       else if (newValue == 0) // released
       {
+#if defined ( UART_DEBUG_MODE )
+      SerialPrintString("\r\nLight Off");
+#endif
         HalLedSet(HAL_LED_2, HAL_LED_MODE_OFF);
+        HalLedSet(HAL_LED_4, HAL_LED_MODE_OFF);
       }
       
       break;
 
     case SIMPLEPROFILE_CHAR3:
       SimpleProfile_GetParameter( SIMPLEPROFILE_CHAR3, &newValue );
-
-#if defined ( UART_DEBUG_MODE )
-      SerialPrintValue("\r\nChar 3:", (uint16)(newValue), 10);
-#endif
 
       break;
 
@@ -757,10 +742,11 @@ static void simpleProfileChangeCB( uint8 paramID )
  *
  * @return  none
  */
-static uint8 gPairStatus=0; /*用来管理当前的状态，如果密码不正确，立即取消连接，0表示未配对，1表示已配对*/
 
 static void simpleBLEPeripheralPairStateCB( uint16 connHandle, uint8 state, uint8 status )
 {
+  uint8 gPairStatus=0; /*用来管理当前的状态，如果密码不正确，立即取消连接，0表示未配对，1表示已配对*/
+
   if ( state == GAPBOND_PAIRING_STATE_STARTED )/*主机发起连接，会进入开始绑定状态*/
   {
 #if defined ( UART_DEBUG_MODE )
