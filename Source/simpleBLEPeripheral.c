@@ -77,11 +77,20 @@
   #include "oad_target.h"
 #endif
 
-#include "SerialApp.h"
+
 
 /*********************************************************************
  * MACROS
  */
+
+#if ( defined UART_DEBUG_MODE ) && ( !defined HAL_UART )
+  #define HAL_UART    TRUE
+#endif
+
+#if ( defined HAL_UART ) && (HAL_UART == TRUE)
+//�������ڳ���
+  #include "SerialApp.h"
+#endif
 
 /*********************************************************************
  * CONSTANTS
@@ -95,8 +104,8 @@
 
 // Limited discoverable mode advertises for 30.72s, and then stops
 // General discoverable mode advertises indefinitely
-#define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_LIMITED 
-//#define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_GENERAL
+//#define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_LIMITED 
+#define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_GENERAL
 
 // Maximum time to remain advertising, when in Limited Discoverable mode. unit is seconds ( default 180s)
 #define USER_LIM_ADV_TIMEOUT                    30
@@ -218,11 +227,14 @@ static uint8 simpleBLEState = BLE_STATE_IDLE; // connected or not
  */
 static void simpleBLEPeripheral_ProcessOSALMsg( osal_event_hdr_t *pMsg );
 static void peripheralStateNotificationCB( gaprole_States_t newState );
-static void performPeriodicTask( void );
+//static void performPeriodicTask( void );
 static void simpleProfileChangeCB( uint8 paramID );
 static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys );
-static char *bdAddr2Str ( uint8 *pAddr );
 
+#if (defined UART_DEBUG_MODE) && (UART_DEBUG_MODE == TRUE)
+  static char *bdAddr2Str ( uint8 *pAddr );
+#endif
+  
 // Device Pair and Passcode
 static void simpleBLEPeripheralPasscodeCB(uint8 *deviceAddr,uint16 connectionHandle,uint8 uiInputs,uint8 uiOutputs );
 static void simpleBLEPeripheralPairStateCB( uint16 connHandle, uint8 state, uint8 status );
@@ -275,11 +287,11 @@ void SimpleBLEPeripheral_Init( uint8 task_id )
   simpleBLEPeripheral_TaskID = task_id;
 
   // Initial UART
-#if defined (HAL_UART)
+#if (defined HAL_UART) && (HAL_UART == TRUE)
   SerialApp_Init(simpleBLEPeripheral_TaskID);
 #endif
 
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
   SerialPrintString("\r\nSimpleBLEPeripheral_BackPack");
 #endif
   
@@ -372,16 +384,16 @@ void SimpleBLEPeripheral_Init( uint8 task_id )
     SimpleProfile_SetParameter( SIMPLEPROFILE_CHAR5, SIMPLEPROFILE_CHAR5_LEN, charValue5 );
   }
   
-#if ( defined HAL_KEY )
+#if ( defined HAL_KEY ) && (HAL_KEY == TRUE)
   // Register for all key events
   RegisterForKeys( simpleBLEPeripheral_TaskID );
 #endif
   
-#if ( defined HAL_LED )
+#if ( defined HAL_LED ) && (HAL_LED == TRUE)
   HalLedSet( (HAL_LED_1 | HAL_LED_2 | HAL_LED_3), HAL_LED_MODE_OFF );
 #endif
 
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
 #if defined FEATURE_OAD
   #if defined (HAL_IMAGE_A)
     SerialPrintValue("BLE Peri-A", OAD_VER_NUM( _imgHdr.ver ), 16);
@@ -400,7 +412,7 @@ void SimpleBLEPeripheral_Init( uint8 task_id )
   // is halted
   HCI_EXT_ClkDivOnHaltCmd( HCI_EXT_ENABLE_CLK_DIVIDE_ON_HALT );
 
-#if !defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
   // Power saving mode
   osal_pwrmgr_device( PWRMGR_BATTERY );
 #endif
@@ -526,7 +538,7 @@ static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys )
     if ( gapProfileState == GAPROLE_CONNECTED )
     {
       GAPRole_TerminateConnection();
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
       SerialPrintString("\r\nTerminated Connection");
 #endif
     }
@@ -544,7 +556,7 @@ static void simpleBLEPeripheral_HandleKeys( uint8 shift, uint8 keys )
       if( current_adv_enabled_status == FALSE )
       {
         new_adv_enabled_status = TRUE;
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
         SerialPrintString("\r\nTurn on advertising");
 #endif
       }
@@ -593,7 +605,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
 
         DevInfo_SetParameter(DEVINFO_SYSTEM_ID, DEVINFO_SYSTEM_ID_LEN, systemId);
 
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
         SerialPrintString("\r\nAddress ");
         SerialPrintString( (uint8*)bdAddr2Str(ownAddress) );
 #endif
@@ -602,7 +614,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
 
     case GAPROLE_ADVERTISING:
       {
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
         SerialPrintString("\r\nAdvertising");
 #endif
         simpleBLEState = BLE_STATE_IDLE;
@@ -611,7 +623,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
 
     case GAPROLE_CONNECTED:
       {
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
         SerialPrintString("\r\nConnected");
 #endif
         simpleBLEState = BLE_STATE_CONNECTED;
@@ -620,7 +632,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
 
     case GAPROLE_WAITING:
       {
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
         SerialPrintString("\r\nWaiting");
 #endif
       }
@@ -628,7 +640,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
 
     case GAPROLE_WAITING_AFTER_TIMEOUT:
       {
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
         SerialPrintString("\r\nTimed Out");
 #endif
       }
@@ -636,7 +648,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
 
     case GAPROLE_ERROR:
       {
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
         SerialPrintString("\r\nError");
 #endif
       }
@@ -653,6 +665,7 @@ static void peripheralStateNotificationCB( gaprole_States_t newState )
 
 }
 
+#if 0
 /*********************************************************************
  * @fn      performPeriodicTask
  *
@@ -686,6 +699,7 @@ static void performPeriodicTask( void )
     SimpleProfile_SetParameter( SIMPLEPROFILE_CHAR4, sizeof(uint8), &valueToCopy);
   }
 }
+#endif
 
 /*********************************************************************
  * @fn      simpleProfileChangeCB
@@ -707,7 +721,7 @@ static void simpleProfileChangeCB( uint8 paramID )
       
       if ( newValue == 1) // pressed
       {
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
       SerialPrintString("\r\nLight On");
 #endif
         HalLedSet(HAL_LED_2, HAL_LED_MODE_ON);
@@ -715,7 +729,7 @@ static void simpleProfileChangeCB( uint8 paramID )
       }
       else if (newValue == 0) // released
       {
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
       SerialPrintString("\r\nLight Off");
 #endif
         HalLedSet(HAL_LED_2, HAL_LED_MODE_OFF);
@@ -749,7 +763,7 @@ static void simpleBLEPeripheralPairStateCB( uint16 connHandle, uint8 state, uint
 
   if ( state == GAPBOND_PAIRING_STATE_STARTED )/*主机发起连接，会进入开始绑定状态*/
   {
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
     SerialPrintString( "\r\nPairing started");
 #endif
     gPairStatus = 0;
@@ -758,14 +772,14 @@ static void simpleBLEPeripheralPairStateCB( uint16 connHandle, uint8 state, uint
   {
     if ( status == SUCCESS )
     {
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
       SerialPrintString( "\r\nPairing success");
 #endif
       gPairStatus = 1;
     }
     else
     {
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
       SerialPrintValue( "\r\nPairing fail", status, 10);
 #endif
       if(status == 8){/*已绑定*/
@@ -777,7 +791,7 @@ static void simpleBLEPeripheralPairStateCB( uint16 connHandle, uint8 state, uint
     //判断配对结果，如果不正确立刻停止连接。
     if(simpleBLEState == BLE_STATE_CONNECTED && gPairStatus !=1){
       GAPRole_TerminateConnection();
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
       SerialPrintString( "\r\nTerminated");
 #endif
     }
@@ -786,7 +800,7 @@ static void simpleBLEPeripheralPairStateCB( uint16 connHandle, uint8 state, uint
   {
     if ( status == SUCCESS )
     {
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
       SerialPrintString( "\r\nBonding success");
 #endif
     }
@@ -817,7 +831,7 @@ static void simpleBLEPeripheralPasscodeCB(uint8 *deviceAddr,uint16 connectionHan
   // Display passcode to user
   if ( uiOutputs != 0 )
   {
-#if defined ( UART_DEBUG_MODE )
+#if (defined UART_DEBUG_MODE ) && (UART_DEBUG_MODE == TRUE)
     uint8 str[7];
     SerialPrintString( "\r\nPasscode:");
     SerialPrintString( (uint8 *) _ltoa(passcode, str, 10));
@@ -828,6 +842,7 @@ static void simpleBLEPeripheralPasscodeCB(uint8 *deviceAddr,uint16 connectionHan
   GAPBondMgr_PasscodeRsp( connectionHandle, SUCCESS, passcode );
 }
 
+#if (defined UART_DEBUG_MODE) && (UART_DEBUG_MODE == TRUE)
 /*********************************************************************
  * @fn      bdAddr2Str
  *
@@ -859,5 +874,6 @@ char *bdAddr2Str( uint8 *pAddr )
 
   return str;
 }
+#endif
 /*********************************************************************
 *********************************************************************/
