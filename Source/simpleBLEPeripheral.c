@@ -102,10 +102,10 @@
 // What is the advertising interval when device is discoverable (units of 625us, 160=100ms)
 #define DEFAULT_ADVERTISING_INTERVAL          160
 
+#define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_GENERAL
 // Limited discoverable mode advertises for 30.72s, and then stops
 // General discoverable mode advertises indefinitely
 //#define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_LIMITED 
-#define DEFAULT_DISCOVERABLE_MODE             GAP_ADTYPE_FLAGS_GENERAL
 
 // Maximum time to remain advertising, when in Limited Discoverable mode. unit is seconds ( default 180s)
 #define USER_LIM_ADV_TIMEOUT                    30
@@ -123,15 +123,10 @@
 #define DEFAULT_DESIRED_CONN_TIMEOUT          100
 
 // Whether to enable automatic parameter update request when a connection is formed
-#define DEFAULT_ENABLE_UPDATE_REQUEST         TRUE
+#define DEFAULT_ENABLE_UPDATE_REQUEST         FALSE //TRUE
 
 // Connection Pause Peripheral time value (in seconds)
 #define DEFAULT_CONN_PAUSE_PERIPHERAL         6
-
-// Company Identifier: Texas Instruments Inc. (13)
-#define TI_COMPANY_ID                         0x000D
-
-#define INVALID_CONNHANDLE                    0xFFFF
 
 // Length of bd addr as a string
 #define B_ADDR_STR_LEN                        15
@@ -139,6 +134,9 @@
 #if defined ( PLUS_BROADCASTER )
   #define ADV_IN_CONN_WAIT                    500 // delay 500 ms
 #endif
+
+// Default connection establishment supervision timeout, n * 10 (ms)
+#define DEFAULT_CONN_EST_SUPERV_TIMEOUT               100 // 1s
 
 // Open debug log in uart port, you should also open HAL_UART=TRUE
 //#define UART_DEBUG_MODE                       TRUE
@@ -343,6 +341,7 @@ void SimpleBLEPeripheral_Init( uint8 task_id )
     GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MAX, advInt );
     
     GAP_SetParamValue( TGAP_LIM_ADV_TIMEOUT, limAdvTimeOut );   // limited for 30s, default is 180s
+    GAP_SetParamValue( TGAP_CONN_EST_SUPERV_TIMEOUT, DEFAULT_CONN_EST_SUPERV_TIMEOUT);  // connection establishment supervision timeout
   }
 
   // Setup the GAP Bond Manager
